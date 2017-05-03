@@ -243,6 +243,7 @@ code_change(_OldVsn, State, _Extra) ->  {ok, State}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Private functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec build_payload(#apns_msg{} | term()) -> binary().
 build_payload(#apns_msg{alert = Alert,
                         badge = Badge,
                         sound = Sound,
@@ -271,7 +272,15 @@ do_build_payload([{Key,Value}|Params], Payload) ->
   case Value of
     Value when is_list(Value); is_binary(Value) ->
           if is_atom(Key) ->
-                  do_build_payload(Params, [{atom_to_binary(Key, utf8), unicode:characters_to_binary(Value)} | Payload]);
+                  case Value of
+                    [{_SubKey, _SubValue} | _] = SubObjValue ->
+                        do_build_payload(Params, [{atom_to_binary(Key, utf8), {SubObjValue}} | Payload]);
+                    _ ->
+                      do_build_payload(Params, [{atom_to_binary(Key, utf8), unicode:characters_to_binary(Value)} | Payload])
+                  end;
+
+
+                  
              true ->
                   do_build_payload(Params, [{Key, unicode:characters_to_binary(Value)} | Payload])
              end;
