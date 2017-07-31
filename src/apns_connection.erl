@@ -278,12 +278,11 @@ do_build_payload([{Key,Value}|Params], Payload) ->
                     _ ->
                       do_build_payload(Params, [{atom_to_binary(Key, utf8), unicode:characters_to_binary(Value)} | Payload])
                   end;
-
-
-                  
              true ->
                   do_build_payload(Params, [{Key, unicode:characters_to_binary(Value)} | Payload])
              end;
+    TrueOrFalse when is_atom(TrueOrFalse), TrueOrFalse orelse not TrueOrFalse ->             
+          do_build_payload(Params, [{Key, TrueOrFalse} | Payload]);
     Value when is_integer(Value) ->
       do_build_payload(Params, [{atom_to_binary(Key, utf8), Value} | Payload]);
     #loc_alert{action = Action,
@@ -304,6 +303,7 @@ do_build_payload([{Key,Value}|Params], Payload) ->
                 [{<<"loc-key">>, unicode:characters_to_binary(LocKey)},
                  {<<"loc-args">>, lists:map(fun unicode:characters_to_binary/1, Args)}]},
       do_build_payload(Params, [{atom_to_binary(Key, utf8), Json} | Payload]);
+
     _ ->
       do_build_payload(Params,Payload)
   end;
