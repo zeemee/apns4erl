@@ -53,17 +53,9 @@ start_link(Connection) ->
 %% @hidden
 -spec init(#apns_connection{}) -> {ok, state()} | {stop, term()}.
 init(Connection) ->
-  try
-    case open_out(Connection) of
-      {ok, OutSocket} -> case open_feedback(Connection) of
-          {ok, InSocket} -> {ok, #state{out_socket=OutSocket, in_socket=InSocket, connection=Connection}};
-          {error, Reason} -> {stop, Reason}
-        end;
-      {error, Reason} -> {stop, Reason}
-    end
-  catch
-    _:{error, Reason2} -> {stop, Reason2}
-  end.
+  self() ! reconnect_out,
+  self() ! reconnect_feedback,
+  {ok, #state{connection=Connection}}.
 
 %% @hidden
 open_out(Connection) ->
@@ -215,10 +207,16 @@ handle_info({ssl_closed, SslSocket}, State = #state{in_socket = SslSocket,
                                                     connection= Connection}) ->
   error_logger:info_msg("Feedback server disconnected. Waiting ~p millis to connect again...~n",
                         [Connection#apns_connection.feedback_timeout]),
-  _Timer = erlang:send_after(Connection#apns_connection.feedback_timeout, self(), reconnect),
+  _Timer = erlang:send_after(Connection#apns_connection.feedback_timeout, self(), reconnect_feedback),
   {noreply, State#state{in_socket = undefined}};
 
-handle_info(reconnect, State = #state{connection = Connection}) ->
+handle_info(reconnect_out, State = #state{connection = Connection}) ->
+  error_logger:info_msg("Reconnecting to APNS...~n"),
+  case open_out(Connection) of
+    {ok, OutSocket} -> {noreply, State#state{out_socket = OutSocket}};
+    {error, Reason} -> {stop, Reason}
+  end;
+handle_info(reconnect_feedback, State = #state{connection = Connection}) ->
   error_logger:info_msg("Reconnecting the Feedback server...~n"),
   case open_feedback(Connection) of
     {ok, InSocket} -> {noreply, State#state{in_socket = InSocket}};
